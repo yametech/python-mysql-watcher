@@ -74,9 +74,8 @@ class GtidEvent(BinLogEvent):
         )
         return gtid
 
-    def _dump(self):
-        print("Commit: %s" % self.commit_flag)
-        print("GTID_NEXT: %s" % self.gtid)
+    def _dump(self, fn: EventHandle):
+        super(GtidEvent, self)._dump()
 
     def __repr__(self):
         return '<GtidEvent "%s">' % self.gtid

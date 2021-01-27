@@ -1,12 +1,21 @@
 # -*- coding: utf-8 -*-
-import asyncio
 import queue
 import random
-from datetime import datetime
+import time
+from threading import Thread
 from typing import Callable, Dict
 
-from .row_event import RowsEvent, WriteRowsEvent, UpdateRowsEvent, DeleteRowsEvent
-from .binlogstream import BinLogStreamReader
+from pymysqlreplication.row_event import RowsEvent, WriteRowsEvent, UpdateRowsEvent, DeleteRowsEvent
+from pymysqlreplication.binlogstream import BinLogStreamReader
+from pymysqlreplication.event import EventHandle
+
+
+def localAsync(f):
+    def wrapper(*args, **kwargs):
+        thr = Thread(target=f, args=args, kwargs=kwargs)
+        thr.start()
+
+    return wrapper
 
 
 class Watcher:
@@ -21,29 +30,54 @@ class Watcher:
                                          server_id=self.id,
                                          only_schemas=[schema],
                                          only_tables=[table],
-                                         only_events=[RowsEvent, WriteRowsEvent, UpdateRowsEvent,
-                                                      DeleteRowsEvent],
+                                         only_events=[RowsEvent, WriteRowsEvent, UpdateRowsEvent],
                                          blocking=True,
-                                         skip_to_timestamp=datetime.now(),
+                                         skip_to_timestamp=time.time(),
                                          )
 
-        def _eventhandle(item: RowsEvent): [self.q.put(row) for row in item.rows]
+    @localAsync
+    def dump(self):
+        def _eventhandle(item: RowsEvent):
+            for row in item.rows:
+                needPut = True
+                value = row.get("values", {})
+                for k, v in self.filter.items():
 
-        def dump():
-            for binlogevent in self.stream:
-                binlogevent.dump(_eventhandle)
+                    if k not in value.keys():
+                        needPut = False
+                        break
+                    if value[k] != v:
+                        needPut = False
+                        break
 
-        self.stream.close()
+                if needPut:
+                    self.q.put(value)
+
+        handleEvent = EventHandle(_eventhandle)
+
+        for binlogevent in self.stream:
+            binlogevent.dump(handleEvent)
 
     def run(self):
-        while True:
-            exception = self.handle(self.q.get())
-            if exception is not None:
-                raise exception
-
-
-def _handle(item): print(item)
+        self.dump()
+        try:
+            while True:
+                exception = self.handle(self.q.get())
+                if exception is not None:
+                    raise exception
+        finally:
+            self.stream.close()
 
 
 if __name__ == '__main__':
-    Watcher('test', 'a', _handle, dict(status=True)).run()
+    def _handle(item): print(item)
+
+
+    MYSQL_SETTINGS = {
+        "host": "10.200.100.200",
+        "port": 3306,
+        "user": "root",
+        "passwd": "Abc12345"
+    }
+
+    Watcher(MYSQL_SETTINGS, 'test', 'a', _handle, dict(name='222')).run()
