@@ -69,15 +69,3 @@ class Watcher:
             self.stream.close()
 
 
-if __name__ == '__main__':
-    def _handle(item): print(item)
-
-
-    MYSQL_SETTINGS = {
-        "host": "10.200.100.200",
-        "port": 3306,
-        "user": "root",
-        "passwd": "Abc12345"
-    }
-
-    Watcher(MYSQL_SETTINGS, 'test', 'a', _handle, dict(name='222')).run()
