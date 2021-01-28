@@ -415,9 +415,6 @@ class RowsEvent(BinLogEvent):
     def _dump(self, fn: EventHandle):
         super(RowsEvent, self)._dump(fn)
         fn.handle(self)
-        # print("Table: %s.%s" % (self.schema, self.table))
-        # print("Affected columns: %d" % self.number_of_columns)
-        # print("Changed rows: %d" % (len(self.rows)))
 
     def _fetch_rows(self):
         self.__rows = []
@@ -509,14 +506,19 @@ class UpdateRowsEvent(RowsEvent):
             self.columns_present_bitmap2 = self.packet.read(
                 (self.number_of_columns + 7) / 8)
 
+        self.ignore_before_flag = False
+
     def _fetch_one_row(self):
-        row = {"before_values": self._read_column_data(self.columns_present_bitmap),
-               "after_values": self._read_column_data(self.columns_present_bitmap2)}
+        # row = {"before_values": self._read_column_data(self.columns_present_bitmap),
+        #        "after_values": self._read_column_data(self.columns_present_bitmap2)}
 
-        return row
+        # ignore before_values
+        self._read_column_data(self.columns_present_bitmap)
 
-    def _dump(self):
-        super(UpdateRowsEvent, self)._dump()
+        return {"values": self._read_column_data(self.columns_present_bitmap2)}
+
+    def _dump(self, fn: EventHandle):
+        super(UpdateRowsEvent, self)._dump(fn)
         # print("Affected columns: %d" % self.number_of_columns)
         # print("Values:")
         # for row in self.rows:

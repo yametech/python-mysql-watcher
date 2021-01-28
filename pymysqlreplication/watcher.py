@@ -2,18 +2,40 @@
 import queue
 import random
 import time
+import ctypes
+import inspect
+
 from threading import Thread
 from typing import Callable, Dict
 
-from pymysqlreplication.row_event import RowsEvent, WriteRowsEvent, UpdateRowsEvent, DeleteRowsEvent
+from pymysqlreplication.row_event import RowsEvent, WriteRowsEvent, UpdateRowsEvent
 from pymysqlreplication.binlogstream import BinLogStreamReader
 from pymysqlreplication.event import EventHandle
 
 
-def localAsync(f):
+def _async_raise(tid, exctype):
+    """raises the exception, performs cleanup if needed"""
+    print("async raise error")
+    tid = ctypes.c_long(tid)
+    if not inspect.isclass(exctype):
+        exctype = type(exctype)
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
+    if res == 0:
+        raise ValueError("invalid thread id")
+    elif res != 1:
+        # """if it returns a number greater than one, you're in trouble,
+        # and you should call it again with exc=NULL to revert the effect"""
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
+        raise SystemError("PyThreadState_SetAsyncExc failed")
+
+
+def stop_thread(thread):
+    _async_raise(thread.ident, SystemExit)
+
+
+def _async_create(f):
     def wrapper(*args, **kwargs):
-        thr = Thread(target=f, args=args, kwargs=kwargs)
-        thr.start()
+        Thread(target=f, args=args, kwargs=kwargs).start()
 
     return wrapper
 
@@ -35,14 +57,14 @@ class Watcher:
                                          skip_to_timestamp=time.time(),
                                          )
 
-    @localAsync
+    @_async_create
     def dump(self):
         def _eventhandle(item: RowsEvent):
             for row in item.rows:
                 needPut = True
                 value = row.get("values", {})
-                for k, v in self.filter.items():
 
+                for k, v in self.filter.items():
                     if k not in value.keys():
                         needPut = False
                         break
@@ -54,18 +76,19 @@ class Watcher:
                     self.q.put(value)
 
         handleEvent = EventHandle(_eventhandle)
-
-        for binlogevent in self.stream:
-            binlogevent.dump(handleEvent)
+        try:
+            for binlogevent in self.stream:
+                binlogevent.dump(handleEvent)
+        except Exception:
+            return
+        finally:
+            self.stream.close()
 
     def run(self):
         self.dump()
         try:
             while True:
-                exception = self.handle(self.q.get())
-                if exception is not None:
-                    raise exception
+                self.handle(self.q.get())
+                self.q.task_done()
         finally:
-            self.stream.close()
-
-
+            self.q.join()

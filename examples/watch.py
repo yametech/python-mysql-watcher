@@ -17,4 +17,4 @@ if __name__ == '__main__':
     # results = select * from test.a where name = '222'
     # for item in results: handle(item)
 
-    Watcher(MYSQL_SETTINGS, 'test', 'a', handle, dict(name='222')).run()
+    Watcher(MYSQL_SETTINGS, 'test', 'a', handle, dict()).run()

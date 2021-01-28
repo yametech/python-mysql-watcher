@@ -7,7 +7,7 @@
 
 from pymysqlreplication import BinLogStreamReader
 from pymysqlreplication.event import EventHandle
-from pymysqlreplication.row_event import RowsEvent, WriteRowsEvent
+from pymysqlreplication.row_event import RowsEvent, WriteRowsEvent, UpdateRowsEvent
 import time
 
 from typing import TypeVar, Generic
@@ -36,7 +36,7 @@ def main():
                                     server_id=3,
                                     only_schemas=['test'],
                                     only_tables=['a'],
-                                    only_events=[RowsEvent, WriteRowsEvent],
+                                    only_events=[RowsEvent, WriteRowsEvent, UpdateRowsEvent],
                                     blocking=True,
                                     skip_to_timestamp=time.time(),
                                     )
