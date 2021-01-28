@@ -35,7 +35,9 @@ def stop_thread(thread):
 
 def _async_create(f):
     def wrapper(*args, **kwargs):
-        Thread(target=f, args=args, kwargs=kwargs).start()
+        t = Thread(target=f, args=args, kwargs=kwargs)
+        t.setDaemon(True)
+        t.start()
 
     return wrapper
 
@@ -90,5 +92,7 @@ class Watcher:
             while True:
                 self.handle(self.q.get())
                 self.q.task_done()
+        except KeyboardInterrupt:
+            return
         finally:
             self.q.join()

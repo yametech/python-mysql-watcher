@@ -34,14 +34,14 @@ class TestCommand(Command):
         unittest.main(tests, argv=sys.argv[:1])
 
 
-version = "0.23"
+version = "0.25"
 
 setup(
     name="mysql-replication-watcher",
     version=version,
     url="https://github.com/laik/python-mysql-replication",
     author="Julien Duponchelle",
-    author_email="yametech.io",
+    author_email="yoshiakiley@gmail.com",
     description=("Pure Python Implementation of MySQL replication protocol build on top of PyMYSQL."),
     license="Apache 2",
     packages=["pymysqlreplication",
